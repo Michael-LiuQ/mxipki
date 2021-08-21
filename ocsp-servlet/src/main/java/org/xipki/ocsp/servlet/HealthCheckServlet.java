@@ -25,6 +25,7 @@ import org.xipki.ocsp.api.ResponderAndPath;
 import org.xipki.util.HealthCheckResult;
 import org.xipki.util.HttpConstants;
 import org.xipki.util.LogUtil;
+import org.xipki.util.SystemLoad;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -91,6 +92,11 @@ public class HealthCheckServlet extends HttpServlet {
           }
         }
       }
+
+      // CPU & Memory usage
+      paraObj.put("cpuUsage", SystemLoad.cpuLoad());
+      paraObj.put("memUsage", SystemLoad.memoryLoad());
+
       healthResult.setStatuses(paraObj);
 
       byte[] respBytes = JSON.toJSONBytes(healthResult);
