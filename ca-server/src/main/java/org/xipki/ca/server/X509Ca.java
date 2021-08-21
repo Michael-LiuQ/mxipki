@@ -133,8 +133,6 @@ public class X509Ca extends X509CaModule implements Closeable {
 
   private final CaIdNameMap caIdNameMap;
 
-  private final boolean masterMode;
-
   private final CaManagerImpl caManager;
 
   private final X509PublisherModule publisherModule;
@@ -168,7 +166,6 @@ public class X509Ca extends X509CaModule implements Closeable {
     }
 
     this.caManager = notNull(caManager, "caManager");
-    this.masterMode = caManager.isMasterMode();
     this.caIdNameMap = caManager.idNameMap();
     this.ctlogClient = ctlogClient;
     this.certstore = notNull(certstore, "certstore");
@@ -180,10 +177,6 @@ public class X509Ca extends X509CaModule implements Closeable {
     this.removerModule = new X509RemoverModule(caManager, caInfo, certstore, publisherModule);
 
   } // constructor
-
-  public boolean isMasterMode() {
-    return masterMode;
-  }
 
   public NameId getCaIdent() {
     return caIdent;
@@ -268,20 +261,20 @@ public class X509Ca extends X509CaModule implements Closeable {
     return (caHasUser == null) ? null : caManager.createByUserRequestor(caHasUser);
   }
 
-  public X509CRLHolder getCurrentCrl() throws OperationException {
-    return crlModule.getCurrentCrl();
+  public X509CRLHolder getCurrentCrl(String msgId) throws OperationException {
+    return crlModule.getCurrentCrl(msgId);
   }
 
-  public X509CRLHolder getCrl(BigInteger crlNumber) throws OperationException {
-    return crlModule.getCrl(crlNumber);
+  public X509CRLHolder getCrl(BigInteger crlNumber, String msgId) throws OperationException {
+    return crlModule.getCrl(crlNumber, msgId);
   } // method getCrl
 
-  public CertificateList getBcCurrentCrl() throws OperationException {
-    return crlModule.getBcCurrentCrl();
+  public CertificateList getBcCurrentCrl(String msgId) throws OperationException {
+    return crlModule.getBcCurrentCrl(msgId);
   }
 
-  public CertificateList getBcCrl(BigInteger crlNumber) throws OperationException {
-    return crlModule.getBcCrl(crlNumber);
+  public CertificateList getBcCrl(BigInteger crlNumber, String msgId) throws OperationException {
+    return crlModule.getBcCrl(crlNumber, msgId);
   }
 
   public X509CRLHolder generateCrlOnDemand(String msgId) throws OperationException {
@@ -298,10 +291,6 @@ public class X509Ca extends X509CaModule implements Closeable {
       RequestorInfo requestor, RequestType reqType, byte[] transactionId, String msgId)
       throws OperationException {
     return generateCerts(certTemplates, requestor, true, reqType, transactionId, msgId);
-  }
-
-  public boolean publishCert(CertificateInfo certInfo) {
-    return publisherModule.publishCert(certInfo);
   }
 
   public boolean republishCerts(List<String> publisherNames, int numThreads) {
@@ -483,27 +472,40 @@ public class X509Ca extends X509CaModule implements Closeable {
 
     String serialNumberMode = certprofile.getSerialNumberMode();
 
-    BigInteger serialNumber;
-    if (StringUtil.isBlank(serialNumberMode) || "CA".equalsIgnoreCase(serialNumberMode)) {
-      serialNumber = caInfo.nextSerial();
-    } else if ("PROFILE".equalsIgnoreCase(serialNumberMode)) {
-      try {
-        ConfPairs extraControl = caInfo.getExtraControl();
+    BigInteger serialNumber = null;
+    while (true) {
+      if (StringUtil.isBlank(serialNumberMode) || "CA".equalsIgnoreCase(serialNumberMode)) {
+        serialNumber = caInfo.nextSerial();
+      } else if ("PROFILE".equalsIgnoreCase(serialNumberMode)) {
+        try {
+          BigInteger previousSerialNumber = serialNumber;
 
-        serialNumber = certprofile.generateSerialNumber(
-                caInfo.getCert().getSubject(),
-                caInfo.getCert().getSubjectPublicKeyInfo(),
-                gct.requestedSubject,
-                gct.grantedPublicKey,
-                extraControl == null ? null : extraControl.unmodifiable());
-      } catch (CertprofileException ex) {
-        LogUtil.error(LOG, ex, "error generateSerialNumber");
-        throw new OperationException(SYSTEM_FAILURE,
+          ConfPairs extraControl = caInfo.getExtraControl();
+          serialNumber = certprofile.generateSerialNumber(
+                  caInfo.getCert().getSubject(),
+                  caInfo.getCert().getSubjectPublicKeyInfo(),
+                  gct.requestedSubject,
+                  gct.grantedPublicKey,
+                  extraControl == null ? null : extraControl.unmodifiable());
+
+          // if the CertProfile generates always the serial number for fixed input,
+          // do not repeat this process.
+          if (serialNumber.equals(previousSerialNumber)) {
+            break;
+          }
+        } catch (CertprofileException ex) {
+          LogUtil.error(LOG, ex, "error generateSerialNumber");
+          throw new OperationException(SYSTEM_FAILURE,
+                  "unknown SerialNumberMode '" + serialNumberMode + "'");
+        }
+      } else {
+        throw new OperationException(BAD_CERT_TEMPLATE,
                 "unknown SerialNumberMode '" + serialNumberMode + "'");
       }
-    } else {
-      throw new OperationException(BAD_CERT_TEMPLATE,
-              "unknown SerialNumberMode '" + serialNumberMode + "'");
+
+      if (certstore.getCertId(caIdent, serialNumber) == 0) {
+          break;
+      }
     }
 
     X509v3CertificateBuilder certBuilder = new X509v3CertificateBuilder(
@@ -611,7 +613,7 @@ public class X509Ca extends X509CaModule implements Closeable {
       ret.setTransactionId(transactionId);
       ret.setRequestedSubject(gct.requestedSubject);
 
-      if (publisherModule.publishCert0(ret) == 1) {
+      if (publisherModule.publishCert(ret) == 1) {
         throw new OperationException(SYSTEM_FAILURE, "could not save certificate");
       }
     } catch (BadCertTemplateException ex) {
@@ -639,12 +641,6 @@ public class X509Ca extends X509CaModule implements Closeable {
     return (profileNames == null || !profileNames.contains(certprofileName))
         ? null : caManager.getIdentifiedCertprofile(certprofileName);
   } // method getX509Certprofile
-
-  public boolean supportsCertprofile(String certprofileName) {
-    notNull(certprofileName, "certprofileName");
-    Set<String> profileNames = caManager.getCertprofilesForCa(caIdent.getName());
-    return profileNames.contains(certprofileName.toLowerCase());
-  }
 
   public RequestorInfo.CmpRequestorInfo getRequestor(X500Name requestorSender) {
     Set<CaHasRequestorEntry> requestorEntries = caManager.getRequestorsForCa(caIdent.getName());

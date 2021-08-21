@@ -41,15 +41,11 @@ abstract class Responder {
 
   private final GeneralName name;
 
-  protected Responder(GeneralName name) {
-    this.name = notNull(name, "name");
-  }
-
-  protected Responder(X500Name name) {
+  private Responder(X500Name name) {
     this.name = new GeneralName(notNull(name, "name"));
   }
 
-  public GeneralName getName() {
+  GeneralName getName() {
     return name;
   }
 
@@ -86,26 +82,26 @@ abstract class Responder {
 
   } // class PbmMacCmpResponder
 
-  static class SignaturetCmpResponder extends Responder {
+  static class SignatureCmpResponder extends Responder {
 
     private final X509Cert cert;
 
     private final AlgorithmValidator sigAlgoValidator;
 
-    public SignaturetCmpResponder(X509Cert cert, AlgorithmValidator sigAlgoValidator) {
+    SignatureCmpResponder(X509Cert cert, AlgorithmValidator sigAlgoValidator) {
       super(notNull(cert, "cert").getSubject());
       this.cert = cert;
       this.sigAlgoValidator = notNull(sigAlgoValidator, "sigAlgoValidator");
     }
 
-    public X509Cert getCert() {
+    X509Cert getCert() {
       return cert;
     }
 
-    public AlgorithmValidator getSigAlgoValidator() {
+    AlgorithmValidator getSigAlgoValidator() {
       return sigAlgoValidator;
     }
 
-  } // class SignaturetCmpResponder
+  } // class SignatureCmpResponder
 
 }

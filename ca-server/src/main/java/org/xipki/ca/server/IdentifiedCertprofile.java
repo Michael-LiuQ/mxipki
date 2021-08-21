@@ -23,7 +23,10 @@ import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.style.IETFUtils;
 import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.util.encoders.Hex;
-import org.xipki.ca.api.*;
+import org.xipki.ca.api.BadCertTemplateException;
+import org.xipki.ca.api.CaUris;
+import org.xipki.ca.api.NameId;
+import org.xipki.ca.api.PublicCaInfo;
 import org.xipki.ca.api.mgmt.entry.CertprofileEntry;
 import org.xipki.ca.api.profile.*;
 import org.xipki.ca.api.profile.Certprofile.*;
@@ -371,11 +374,13 @@ public class IdentifiedCertprofile implements Closeable {
       List<String> caIssuers = null;
       if (aiaControl == null || aiaControl.isIncludesCaIssuers()) {
         caIssuers = caUris.getCacertUris();
+        assertAllUrisHasProtocol(caIssuers, aiaControl.getCaIssuersProtocols());
       }
 
       List<String> ocspUris = null;
       if (aiaControl == null || aiaControl.isIncludesOcsp()) {
         ocspUris = caUris.getOcspUris();
+        assertAllUrisHasProtocol(ocspUris, aiaControl.getOcspProtocols());
       }
 
       AuthorityInformationAccess value = null;
@@ -396,8 +401,12 @@ public class IdentifiedCertprofile implements Closeable {
       extControl = controls.remove(extType);
       if (extControl != null) {
         CRLDistPoint value = null;
-        if (CollectionUtil.isNotEmpty(caUris.getCrlUris())) {
-          value = CaUtil.createCrlDistributionPoints(caUris.getCrlUris(),
+        List<String> uris = caUris.getCrlUris();
+        if (CollectionUtil.isNotEmpty(uris)) {
+          CrlDistributionPointsControl control = certprofile.getCrlDpControl();
+          Set<String> protocols = control == null ? null : control.getProtocols();
+          assertAllUrisHasProtocol(uris, protocols);
+          value = CaUtil.createCrlDistributionPoints(uris,
               x500CaPrincipal, crlSignerSubject);
         }
         addExtension(values, extType, value, extControl);
@@ -408,7 +417,11 @@ public class IdentifiedCertprofile implements Closeable {
       extControl = controls.remove(extType);
       if (extControl != null) {
         CRLDistPoint value = null;
-        if (CollectionUtil.isNotEmpty(caUris.getDeltaCrlUris())) {
+        List<String> uris = caUris.getDeltaCrlUris();
+        if (CollectionUtil.isNotEmpty(uris)) {
+          CrlDistributionPointsControl control = certprofile.getFreshestCrlControl();
+          Set<String> protocols = control == null ? null : control.getProtocols();
+          assertAllUrisHasProtocol(uris, protocols);
           value = CaUtil.createCrlDistributionPoints(caUris.getDeltaCrlUris(),
               x500CaPrincipal, crlSignerSubject);
         }
@@ -594,16 +607,14 @@ public class IdentifiedCertprofile implements Closeable {
                 for (int i = 0; i < 8; i++) {
                   String block = blocks[i];
                   int blen = block.length();
-                  if (blen == 0) {
-                    continue;
-                  } else if (blen == 1 | blen == 2) {
+                  if (blen == 1 | blen == 2) {
                     commonNameBytes[i * 2 + 1] = (byte) Integer.parseInt(block, 16);
                   } else if (blen == 3 | blen == 4) {
                     commonNameBytes[i * 2] =
                         (byte) Integer.parseInt(block.substring(0, blen - 2), 16);
                     commonNameBytes[i * 2 + 1] =
                         (byte) Integer.parseInt(block.substring(blen - 2), 16);
-                  } else {
+                  } else if(blen != 0) {
                     throw new BadCertTemplateException(
                         "invalid IP address in commonName " + commonName);
                   }
@@ -629,6 +640,28 @@ public class IdentifiedCertprofile implements Closeable {
 
     return values;
   } // method getExtensions
+
+  private static void assertAllUrisHasProtocol(List<String> uris, Set<String> protocols)
+          throws CertprofileException {
+    if (protocols == null) {
+      return;
+    }
+
+    for (String uri : uris) {
+      boolean validUri = false;
+      for (String protocol : protocols) {
+        if (uri.startsWith(protocol + ":")) {
+          validUri = true;
+          break;
+        }
+      }
+
+      if (!validUri) {
+        throw new CertprofileException(
+                "URL '" + uri + "' does not have any of protocols " + protocols);
+      }
+    }
+  }
 
   public CertLevel getCertLevel() {
     return certprofile.getCertLevel();
@@ -669,15 +702,6 @@ public class IdentifiedCertprofile implements Closeable {
     }
   }
 
-  public boolean useIssuerAndSerialInAki() {
-    return certprofile.useIssuerAndSerialInAki();
-  }
-
-  public String incSerialNumber(String currentSerialNumber)
-      throws BadFormatException {
-    return certprofile.incSerialNumber(currentSerialNumber);
-  }
-
   public boolean isSerialNumberInReqPermitted() {
     return certprofile.isSerialNumberInReqPermitted();
   }
@@ -686,25 +710,12 @@ public class IdentifiedCertprofile implements Closeable {
     return certprofile.getExtensionControls();
   }
 
-  public Set<KeyUsageControl> getKeyUsage() {
-    return certprofile.getKeyUsage();
-  }
-
   public Integer getPathLenBasicConstraint() {
     return certprofile.getPathLenBasicConstraint();
-  }
-
-  public Set<ExtKeyUsageControl> getExtendedKeyUsages() {
-    return certprofile.getExtendedKeyUsages();
   }
 
   public int getMaxCertSize() {
     return certprofile.getMaxCertSize();
   }
-
-  public void validate()
-      throws CertprofileException {
-    CertprofileUtil.validate(certprofile);
-  } // method validate
 
 }

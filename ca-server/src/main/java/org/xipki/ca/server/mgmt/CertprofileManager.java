@@ -19,6 +19,7 @@ package org.xipki.ca.server.mgmt;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.xipki.ca.api.CertprofileValidator;
 import org.xipki.ca.api.NameId;
 import org.xipki.ca.api.mgmt.CaMgmtException;
 import org.xipki.ca.api.mgmt.entry.CertprofileEntry;
@@ -249,7 +250,13 @@ class CertprofileManager {
 
     try {
       Certprofile profile = manager.certprofileFactoryRegister.newCertprofile(type);
-      return new IdentifiedCertprofile(entry, profile);
+      IdentifiedCertprofile identifiedCertprofile = new IdentifiedCertprofile(entry, profile);
+      try {
+        CertprofileValidator.validate(profile);
+      } catch (CertprofileException ex) {
+        LogUtil.warn(LOG, ex, "validating certprofile " + entry.getIdent().getName() + " failed");
+      }
+      return identifiedCertprofile;
     } catch (ObjectCreationException | CertprofileException ex) {
       String msg = "could not initialize Certprofile " + entry.getIdent();
       LogUtil.error(LOG, ex, msg);

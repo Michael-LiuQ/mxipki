@@ -20,7 +20,10 @@ package org.xipki.cmpclient.internal;
 import org.bouncycastle.asn1.cmp.PBMParameter;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.GeneralName;
-import org.xipki.security.*;
+import org.xipki.security.ConcurrentContentSigner;
+import org.xipki.security.HashAlgo;
+import org.xipki.security.SignAlgo;
+import org.xipki.security.X509Cert;
 
 import java.security.SecureRandom;
 
@@ -39,21 +42,16 @@ abstract class Requestor {
 
   private final boolean signRequest;
 
-  protected Requestor(boolean signRequest, GeneralName name) {
-    this.signRequest = signRequest;
-    this.name = notNull(name, "name");
-  }
-
-  protected Requestor(boolean signRequest, X500Name name) {
+  private Requestor(boolean signRequest, X500Name name) {
     this.signRequest = signRequest;
     this.name = new GeneralName(notNull(name, "name"));
   }
 
-  public boolean signRequest() {
+  boolean signRequest() {
     return signRequest;
   }
 
-  public GeneralName getName() {
+  GeneralName getName() {
     return name;
   }
 
@@ -83,30 +81,18 @@ abstract class Requestor {
       this.mac = mac;
     }
 
-    public char[] getPassword() {
+    char[] getPassword() {
       return password;
     }
 
     // CHECKSTYLE:SKIP
-    public byte[] getSenderKID() {
+    byte[] getSenderKID() {
       return senderKID;
     }
 
-    public PBMParameter getParameter() {
+    PBMParameter getParameter() {
       return new PBMParameter(randomSalt(), owf.getAlgorithmIdentifier(),
           iterationCount, mac.getAlgorithmIdentifier());
-    }
-
-    public HashAlgo getOwf() {
-      return owf;
-    }
-
-    public int getIterationCount() {
-      return iterationCount;
-    }
-
-    public SignAlgo getMac() {
-      return mac;
     }
 
     private byte[] randomSalt() {
@@ -125,13 +111,12 @@ abstract class Requestor {
       this.signer = null;
     }
 
-    public SignatureCmpRequestor(boolean signRequest, ConcurrentContentSigner signer,
-        SecurityFactory securityFactory) {
+    SignatureCmpRequestor(boolean signRequest, ConcurrentContentSigner signer) {
       super(signRequest, getSignerSubject(signer));
       this.signer = signer;
     }
 
-    public ConcurrentContentSigner getSigner() {
+    ConcurrentContentSigner getSigner() {
       return signer;
     }
 

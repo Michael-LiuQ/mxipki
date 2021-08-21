@@ -116,14 +116,6 @@ final class CmpClientConfigurer {
       this.hostnameVerifier = hostnameVerifier;
     }
 
-    public SSLSocketFactory getSslSocketFactory() {
-      return sslSocketFactory;
-    }
-
-    public HostnameVerifier getHostnameVerifier() {
-      return hostnameVerifier;
-    }
-
   } // class SslConf
 
   private static final Logger LOG = LoggerFactory.getLogger(CmpClientConfigurer.class);
@@ -297,7 +289,7 @@ final class CmpClientConfigurer {
           return false;
         }
 
-        responder = new Responder.SignaturetCmpResponder(cert, sigAlgoValidator);
+        responder = new Responder.SignatureCmpResponder(cert, sigAlgoValidator);
       } else { // if (m.getPbmMac() != null)
         CmpClientConf.Responder.PbmMac mac = m.getPbmMac();
         X500Name subject = cert.getSubject();
@@ -333,8 +325,8 @@ final class CmpClientConfigurer {
             LOG.error("no ssl named {} is configured", caType.getSsl());
             return false;
           } else {
-            sslSocketFactory = sslConf.getSslSocketFactory();
-            hostnameVerifier = sslConf.getHostnameVerifier();
+            sslSocketFactory = sslConf.sslSocketFactory;
+            hostnameVerifier = sslConf.hostnameVerifier;
           }
         }
 
@@ -462,8 +454,7 @@ final class CmpClientConfigurer {
             SignerConf signerConf = new SignerConf(cf.getSignerConf());
             ConcurrentContentSigner requestorSigner = securityFactory.createSigner(
                 cf.getSignerType(), signerConf, requestorCert);
-            requestor = new SignatureCmpRequestor(
-                signRequest, requestorSigner, securityFactory);
+            requestor = new SignatureCmpRequestor(signRequest, requestorSigner);
           } catch (ObjectCreationException ex) {
             LogUtil.error(LOG, ex, "could not create rquestor " + requestorConf.getName());
             return false;
@@ -553,10 +544,6 @@ final class CmpClientConfigurer {
     LOG.info("initialized");
     return true;
   } // method init
-
-  String getConfFile() {
-    return confFile;
-  }
 
   void setConfFile(String confFile) {
     this.confFile = notBlank(confFile, "confFile");

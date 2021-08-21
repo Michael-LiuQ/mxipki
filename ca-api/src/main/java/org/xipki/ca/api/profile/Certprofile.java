@@ -507,9 +507,9 @@ public abstract class Certprofile implements Closeable {
 
   public enum X509CertVersion {
 
-    v1(1),
-    v2(2),
-    v3(3);
+    v1(0),
+    v2(1),
+    v3(2);
 
     private final int versionNumber;
 
@@ -530,15 +530,6 @@ public abstract class Certprofile implements Closeable {
         }
       }
       throw new IllegalArgumentException("invalid X509CertVersion " + version);
-    }
-
-    public static X509CertVersion forValue(int versionNumber) {
-      for (X509CertVersion m : values()) {
-        if (m.versionNumber == versionNumber) {
-          return m;
-        }
-      }
-      throw new IllegalArgumentException("invalid X509CertVersion " + versionNumber);
     }
 
   } // class SubjectInfo
@@ -838,8 +829,8 @@ public abstract class Certprofile implements Closeable {
    *         null, empty or 'CA': CA generates serial number
    *         'PROFILE': The function
    *           {@link #generateSerialNumber(X500Name, SubjectPublicKeyInfo, X500Name,
-   *           SubjectPublicKeyInfo, ConfPairs)} will
-   *           be called to generate the serial number. The list is case-sensitive.
+   *           SubjectPublicKeyInfo, ConfPairs)} will be called to generate the serial number.
+   *           The ConfPairs is case-sensitive.
    */
   public String getSerialNumberMode() {
     return null;
@@ -852,8 +843,8 @@ public abstract class Certprofile implements Closeable {
    * @param requestSubject requested subject.
    * @param publicKeyInfo requested public key info.
    * @param caExtraControl Key-value pairs of CA's extraControl.
-   * @return
-   * @throws CertprofileException
+   * @return the serial number of certificate.
+   * @throws CertprofileException if Certprofile Exception occurred.
    */
   public BigInteger generateSerialNumber(
           X500Name caSubject,
