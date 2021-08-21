@@ -39,7 +39,7 @@ public class SystemLoad {
     public static double memoryLoad() {
         double totalVirtualMemory = osmxb.getTotalPhysicalMemorySize();
         double freePhysicalMemorySize = osmxb.getFreePhysicalMemorySize();
-        double percentMemoryLoad = freePhysicalMemorySize / totalVirtualMemory * 100;
+        double percentMemoryLoad = (totalVirtualMemory - freePhysicalMemorySize) / totalVirtualMemory * 100;
         return percentMemoryLoad;
     }
 }
