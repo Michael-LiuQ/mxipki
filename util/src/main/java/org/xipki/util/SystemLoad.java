@@ -32,14 +32,14 @@ public class SystemLoad {
     private static OperatingSystemMXBean osmxb = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
 
     public static double cpuLoad() {
-        double percentCpuLoad = osmxb.getSystemCpuLoad();
+        double percentCpuLoad = osmxb.getSystemCpuLoad() * 100;
         return percentCpuLoad;
     }
 
     public static double memoryLoad() {
         double totalVirtualMemory = osmxb.getTotalPhysicalMemorySize();
         double freePhysicalMemorySize = osmxb.getFreePhysicalMemorySize();
-        double percentMemoryLoad = freePhysicalMemorySize / totalVirtualMemory;
+        double percentMemoryLoad = freePhysicalMemorySize / totalVirtualMemory * 100;
         return percentMemoryLoad;
     }
 }
