@@ -32,6 +32,9 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.xipki.util.Args.notNull;
 
@@ -74,6 +77,21 @@ public class HealthCheckServlet extends HttpServlet {
       HealthCheckResult healthResult = server.healthCheck(responderAndPath.getResponder());
       int status = healthResult.isHealthy()
           ? HttpServletResponse.SC_OK : HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+
+      // fetch url querystring, then back them to client in JSON statuses.
+      Map<String, Object> paraObj = new HashMap<>();
+      Enumeration paramNames = req.getParameterNames();
+      while (paramNames.hasMoreElements()) {
+        String paramName = (String) paramNames.nextElement();
+        String[] paramValues = req.getParameterValues(paramName);
+        if (paramValues.length == 1) {
+          String paramValue = paramValues[0];
+          if (paramValue.length() != 0) {
+            paraObj.put(paramName, paramValue);
+          }
+        }
+      }
+      healthResult.setStatuses(paraObj);
 
       byte[] respBytes = JSON.toJSONBytes(healthResult);
       resp.setStatus(status);
