@@ -196,7 +196,7 @@ public class OcspServerImpl implements OcspServer {
   @Override
   public ResponderAndPath getResponderForPath(String path) {
     for (String servletPath : servletPaths) {
-      if (path.startsWith(servletPath)) {
+      if (path.equalsIgnoreCase(servletPath)) {
         return new ResponderAndPath(servletPath, path2responderMap.get(servletPath));
       }
     }
